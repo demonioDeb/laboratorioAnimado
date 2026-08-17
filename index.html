@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratorio Animado</title>
+<meta name="description" content="Animaciones científicas que puedes tocar. Mira el vídeo, luego juega con la simulación.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230A1826'/><path d='M4 27.5h25M4.5 28V5' stroke='%232A5878' stroke-width='1.4' fill='none'/><rect x='7' y='21' width='5.6' height='6.5' fill='%23E9A93C' opacity='.45'/><rect x='13.2' y='16' width='5.6' height='11.5' fill='%23E9A93C' opacity='.65'/><rect x='19.4' y='8.5' width='5.6' height='19' fill='%23E9A93C' opacity='.85'/><path d='M5 27C10 26.2 18 20 25 6.5' stroke='%23EAF2F8' stroke-width='2.2' fill='none' stroke-linecap='round'/></svg>">
+
+<!-- Miniatura al compartir -->
+<meta property="og:url"        content="https://demoniodeb.github.io/laboratorioAnimado/">
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="Laboratorio Animado">
+<meta property="og:title"       content="Laboratorio Animado">
+<meta property="og:description" content="Animaciones cientificas que puedes tocar. Mira el video, luego juega con la simulacion.">
+<meta property="og:image"       content="https://demoniodeb.github.io/laboratorioAnimado/riemann-portada.jpg">
+<meta property="og:image:width"  content="1280">
+<meta property="og:image:height" content="720">
+<meta name="twitter:card"       content="summary_large_image">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lab.css">
+<style>
+  body{display:block;overflow-y:auto;overflow-x:hidden}
+  .envoltorio{max-width:1080px;margin:0 auto;padding:70px 26px 90px}
+  .cabecera{border-bottom:1px solid var(--rule);padding-bottom:34px;margin-bottom:44px}
+  .cabecera h1{font-family:'Instrument Serif',Georgia,serif;font-size:clamp(44px,7vw,76px);
+    line-height:.98;letter-spacing:-.01em}
+  .cabecera h1 em{font-style:italic;color:var(--ochre)}
+  .cabecera p{margin-top:16px;font-size:16.5px;line-height:1.55;color:var(--chalk-2);max-width:44ch}
+  .conteo{margin-top:22px;font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--chalk-3)}
+
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1px;
+    background:var(--rule);border:1px solid var(--rule)}
+  .ficha{background:var(--ground);display:flex;flex-direction:column;transition:background .16s}
+  .ficha:hover{background:var(--panel)}
+  .mini{aspect-ratio:16/9;background:#0A1826 center/cover no-repeat;
+    border-bottom:1px solid var(--rule);position:relative;overflow:hidden}
+  .mini.sin{display:grid;place-items:center;
+    background-image:
+      linear-gradient(rgba(90,150,200,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(90,150,200,.07) 1px, transparent 1px);
+    background-size:14px 14px,14px 14px}
+  .mini.sin span{font-family:'Instrument Serif',Georgia,serif;font-size:52px;
+    color:var(--rule-2);line-height:1}
+  .cuerpo{padding:22px 24px 24px;display:flex;flex-direction:column;flex:1}
+  .ficha .cat{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ochre)}
+  .ficha h2{font-family:'Instrument Serif',Georgia,serif;font-size:29px;line-height:1.08;margin:10px 0 9px}
+  .ficha p{font-size:13.5px;line-height:1.55;color:var(--chalk-3);flex:1}
+  .ficha .pie{display:flex;align-items:center;gap:9px;margin-top:18px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--chalk-3)}
+  .marca{border:1px solid var(--rule-2);padding:3px 7px}
+  .marca.viva{border-color:var(--ochre-dim);color:var(--ochre)}
+  .flecha{margin-left:auto;font-size:17px;color:var(--chalk-2)}
+  .ficha:hover .flecha{color:var(--ochre)}
+
+  .vacio{background:var(--ground);min-height:270px;display:grid;place-items:center;
+    text-align:center;font-size:13px;color:var(--chalk-3);line-height:1.6;
+    border:1px dashed var(--rule);margin:0}
+  .cierre{margin-top:46px;padding-top:26px;border-top:1px solid var(--rule);
+    font-size:12.5px;color:var(--chalk-3);line-height:1.7}
+  #zonaEstudio{margin-top:28px;padding:18px;border:1px dashed var(--ochre-dim);border-radius:2px}
+  #zonaEstudio .btn{height:42px;padding:0 22px}
+  .aviso{margin-top:10px;font-size:12px;line-height:1.55;color:var(--chalk-3)}
+  #zonaEstudio[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="envoltorio">
+
+  <header class="cabecera">
+    <h1>Laboratorio <em>animado</em></h1>
+    <p>Ideas científicas que se entienden mejor moviéndolas. Cada vídeo tiene aquí su
+       simulación: los mismos controles, sin prisa y en tus manos.</p>
+    <p class="conteo" id="conteo"></p>
+  </header>
+
+  <main class="rejilla" id="rejilla"></main>
+
+  <div id="zonaEstudio" hidden>
+    <button class="btn solid" id="bTodas">Generar todas las portadas</button>
+    <p class="aviso" id="avisoTodas">Abre cada animación en segundo plano, la deja
+    correr unos segundos y descarga su portada. El navegador te pedirá permiso para
+    guardar varios archivos: acéptalo.</p>
+  </div>
+
+  <p class="cierre">
+    Hecho con HTML, JavaScript y ganas de que las matemáticas se vean.
+    Cada animación funciona sin conexión: descarga la página y sigue moviéndose.
+  </p>
+</div>
+
+<script src="catalogo.js"></script>
+<script>
+(() => {
+  const lista = window.CATALOGO || [];
+  const ruta = window.LAB_RUTA_ANIM || '';
+  const r = document.getElementById('rejilla');
+
+  /* Las rutas se deducen del id: nunca hay que escribirlas a mano */
+  const rutaDe    = a => `${ruta}${a.id}.html`;
+  const portadaDe = a => `${ruta}${a.id}-portada.jpg`;
+
+  document.getElementById('conteo').textContent =
+    lista.length + (lista.length === 1 ? ' animación' : ' animaciones');
+
+  lista.forEach(a => {
+    const el = document.createElement('a');
+    el.className = 'ficha';
+    el.href = rutaDe(a);
+    el.innerHTML = `
+      <div class="mini sin"><span>${a.titulo.charAt(0)}</span></div>
+      <div class="cuerpo">
+        <span class="cat">${a.categoria}</span>
+        <h2>${a.titulo}</h2>
+        <p>${a.resumen}</p>
+        <span class="pie">
+          <span class="marca${a.youtube  ? ' viva' : ''}">YT</span>
+          <span class="marca${a.tiktok   ? ' viva' : ''}">TT</span>
+          <span class="marca${a.facebook ? ' viva' : ''}">FB</span>
+          <span class="flecha">→</span>
+        </span>
+      </div>`;
+    r.appendChild(el);
+
+    /* La portada primero: está generada en 16:9, justo la forma de la
+       ficha. La miniatura de YouTube viene del vídeo vertical y aquí
+       sale recortada o con barras. Solo se usa si no hay portada. */
+    const mini = el.querySelector('.mini');
+    const probar = src => new Promise(ok => {
+      const i = new Image();
+      i.onload = () => ok(i.naturalWidth > 130 ? src : null);
+      i.onerror = () => ok(null);
+      i.src = src;
+    });
+
+    const cola = [portadaDe(a)];
+    if (a.youtube && window.LAB_SOLO_PORTADA === false) cola.push(
+      `https://img.youtube.com/vi/${a.youtube}/maxresdefault.jpg`,
+      `https://img.youtube.com/vi/${a.youtube}/hqdefault.jpg`);
+
+    (async () => {
+      for (const src of cola) {
+        const ok = await probar(src);
+        if (!ok) continue;
+        mini.classList.remove('sin');
+        mini.innerHTML = '';
+        mini.style.backgroundImage = `url('${ok}')`;
+        return;
+      }
+    })();
+  });
+
+  /* ── Portadas de todas, de una tacada ── */
+  if (new URLSearchParams(location.search).has('studio')) {
+    const zona = document.getElementById('zonaEstudio');
+    zona.hidden = false;
+    const boton = document.getElementById('bTodas');
+    const aviso = document.getElementById('avisoTodas');
+
+    const bajar = (blob, nombre) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = nombre;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    };
+
+    /* Cada animación se abre en un marco oculto, se le da tiempo a que
+       la escena se desarrolle, y se le pide la imagen. Es el mismo
+       código que el botón «Portada 16:9», llamado desde fuera. */
+    const unaPortada = (a, espera) => new Promise(listo => {
+      const marco = document.createElement('iframe');
+      Object.assign(marco.style, {
+        position:'fixed', left:'-4000px', top:'0',
+        width:'1280px', height:'720px', border:'0'
+      });
+      marco.src = rutaDe(a) + '?abrir';
+      marco.onload = () => setTimeout(() => {
+        try {
+          marco.contentWindow.LabShell.hacerPortada((blob, nombre) => {
+            bajar(blob, nombre);
+            marco.remove();
+            listo(true);
+          });
+        } catch (err) {
+          console.error('portada de', a.id, err);
+          marco.remove();
+          listo(false);
+        }
+      }, espera);
+      document.body.appendChild(marco);
+    });
+
+    boton.onclick = async () => {
+      boton.disabled = true;
+      let hechas = 0;
+      for (const a of lista) {
+        aviso.textContent = `Generando ${a.titulo}…  (${hechas + 1} de ${lista.length})`;
+        const ok = await unaPortada(a, 4500);
+        if (ok) hechas++;
+        await new Promise(r => setTimeout(r, 400));
+      }
+      aviso.textContent = `Listo: ${hechas} de ${lista.length} portadas. ` +
+        'Muévelas a la carpeta de las animaciones.';
+      boton.disabled = false;
+    };
+  }
+
+  /* Huecos para que la rejilla no quede coja al principio */
+  for (let i = lista.length; i < 3; i++) {
+    const v = document.createElement('div');
+    v.className = 'vacio';
+    v.textContent = 'Próximamente';
+    r.appendChild(v);
+  }
+})();
+</script>
+</body>
+</html>
