@@ -33,6 +33,15 @@
   .conteo{margin-top:22px;font-family:'JetBrains Mono',monospace;font-size:11px;
     letter-spacing:.16em;text-transform:uppercase;color:var(--chalk-3)}
 
+  .filtros{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+  .filtros button{padding:7px 14px;border:1px solid var(--rule-2);border-radius:100px;
+    font-size:12px;color:var(--chalk-2);background:none;cursor:pointer;transition:all .13s}
+  .filtros button:hover{border-color:var(--chalk-3);color:var(--chalk)}
+  .filtros button[aria-pressed=true]{background:var(--chalk);border-color:var(--chalk);
+    color:var(--ground);font-weight:600}
+  .marca.larga{letter-spacing:.06em}
+  .ficha.fuera{display:none}
+
   .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1px;
     background:var(--rule);border:1px solid var(--rule)}
   .ficha{background:var(--ground);display:flex;flex-direction:column;transition:background .16s}
@@ -67,6 +76,14 @@
   #zonaEstudio{margin-top:28px;padding:18px;border:1px dashed var(--ochre-dim);border-radius:2px}
   #zonaEstudio .btn{height:42px;padding:0 22px}
   .aviso{margin-top:10px;font-size:12px;line-height:1.55;color:var(--chalk-3)}
+  #salidaPortadas{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+    gap:10px;margin-top:14px}
+  .port{display:block;border:1px solid var(--rule);background:var(--ground);
+    text-decoration:none;transition:border-color .13s}
+  .port:hover{border-color:var(--ochre)}
+  .port img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+  .port span{display:block;padding:7px 9px;font-family:'JetBrains Mono',monospace;
+    font-size:10px;color:var(--chalk-3);overflow-wrap:anywhere}
   #zonaEstudio[hidden]{display:none}
 </style>
 </head>
@@ -80,13 +97,15 @@
     <p class="conteo" id="conteo"></p>
   </header>
 
+  <nav class="filtros" id="filtros"></nav>
   <main class="rejilla" id="rejilla"></main>
 
   <div id="zonaEstudio" hidden>
     <button class="btn solid" id="bTodas">Generar todas las portadas</button>
     <p class="aviso" id="avisoTodas">Abre cada animación en segundo plano, la deja
-    correr unos segundos y descarga su portada. El navegador te pedirá permiso para
-    guardar varios archivos: acéptalo.</p>
+    correr unos segundos y le saca la portada. Al terminar aparecen aquí para que
+    las guardes.</p>
+    <div id="salidaPortadas"></div>
   </div>
 
   <p class="cierre">
@@ -112,6 +131,8 @@
   lista.forEach(a => {
     const el = document.createElement('a');
     el.className = 'ficha';
+    el.dataset.cat = a.categoria;
+    el.dataset.largo = a.youtubeLargo ? '1' : '0';
     el.href = rutaDe(a);
     el.innerHTML = `
       <div class="mini sin"><span>${a.titulo.charAt(0)}</span></div>
@@ -121,6 +142,7 @@
         <p>${a.resumen}</p>
         <span class="pie">
           <span class="marca${a.youtube  ? ' viva' : ''}">YT</span>
+          ${a.youtubeLargo ? '<span class="marca viva larga">LARGO</span>' : ''}
           <span class="marca${a.tiktok   ? ' viva' : ''}">TT</span>
           <span class="marca${a.facebook ? ' viva' : ''}">FB</span>
           <span class="flecha">→</span>
@@ -156,24 +178,42 @@
     })();
   });
 
-  /* ── Portadas de todas, de una tacada ── */
+  /* ── Filtros: por categoría y por tener vídeo largo ── */
+  (() => {
+    const nav = document.getElementById('filtros');
+    const cats = [...new Set(lista.map(a => a.categoria))].sort();
+    const opciones = [['todas', 'Todas'], ...cats.map(c => [c, c])];
+    if (lista.some(a => a.youtubeLargo)) opciones.push(['__largo', 'Con vídeo largo']);
+
+    nav.innerHTML = opciones.map(([v, t], i) =>
+      `<button data-filtro="${v}" aria-pressed="${i === 0}">${t}</button>`).join('');
+
+    nav.onclick = ev => {
+      const b = ev.target.closest('[data-filtro]');
+      if (!b) return;
+      const f = b.dataset.filtro;
+      nav.querySelectorAll('button').forEach(x =>
+        x.setAttribute('aria-pressed', String(x === b)));
+      document.querySelectorAll('.ficha').forEach(fi => {
+        const cat = fi.dataset.cat, largo = fi.dataset.largo === '1';
+        const cabe = f === 'todas' || (f === '__largo' ? largo : cat === f);
+        fi.classList.toggle('fuera', !cabe);
+      });
+      document.querySelectorAll('.vacio').forEach(v =>
+        v.classList.toggle('fuera', f !== 'todas'));
+    };
+  })();
+
+  /* ── Portadas de todas, de una tacada ──
+     Chrome corta las descargas automáticas encadenadas, así que primero
+     se generan todas y luego se enseñan aquí para guardarlas a mano. */
   if (new URLSearchParams(location.search).has('studio')) {
     const zona = document.getElementById('zonaEstudio');
     zona.hidden = false;
     const boton = document.getElementById('bTodas');
     const aviso = document.getElementById('avisoTodas');
+    const salida = document.getElementById('salidaPortadas');
 
-    const bajar = (blob, nombre) => {
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = nombre;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    };
-
-    /* Cada animación se abre en un marco oculto, se le da tiempo a que
-       la escena se desarrolle, y se le pide la imagen. Es el mismo
-       código que el botón «Portada 16:9», llamado desde fuera. */
     const unaPortada = (a, espera) => new Promise(listo => {
       const marco = document.createElement('iframe');
       Object.assign(marco.style, {
@@ -181,17 +221,21 @@
         width:'1280px', height:'720px', border:'0'
       });
       marco.src = rutaDe(a) + '?abrir';
+      let resuelto = false;
+      const fin = (blob, nombre, err) => {
+        if (resuelto) return;
+        resuelto = true;
+        marco.remove();
+        listo({ blob, nombre, err });
+      };
+      setTimeout(() => fin(null, null, 'tardó demasiado'), espera + 9000);
       marco.onload = () => setTimeout(() => {
         try {
-          marco.contentWindow.LabShell.hacerPortada((blob, nombre) => {
-            bajar(blob, nombre);
-            marco.remove();
-            listo(true);
-          });
+          const L = marco.contentWindow.LabShell;
+          if (!L || !L.hacerPortada) return fin(null, null, 'la animación no cargó');
+          L.hacerPortada((blob, nombre) => fin(blob, nombre, null));
         } catch (err) {
-          console.error('portada de', a.id, err);
-          marco.remove();
-          listo(false);
+          fin(null, null, err.message);
         }
       }, espera);
       document.body.appendChild(marco);
@@ -199,15 +243,43 @@
 
     boton.onclick = async () => {
       boton.disabled = true;
-      let hechas = 0;
-      for (const a of lista) {
-        aviso.textContent = `Generando ${a.titulo}…  (${hechas + 1} de ${lista.length})`;
-        const ok = await unaPortada(a, 4500);
-        if (ok) hechas++;
-        await new Promise(r => setTimeout(r, 400));
+      salida.innerHTML = '';
+      const hechas = [];
+      for (let i = 0; i < lista.length; i++) {
+        const a = lista[i];
+        aviso.textContent = `Generando ${a.titulo}…  (${i + 1} de ${lista.length})`;
+        const r = await unaPortada(a, 4500);
+        if (r.blob) hechas.push(r); else console.error('portada de', a.id, r.err);
       }
-      aviso.textContent = `Listo: ${hechas} de ${lista.length} portadas. ` +
-        'Muévelas a la carpeta de las animaciones.';
+
+      /* Se enseñan aquí: guardar desde un clic tuyo nunca lo bloquea nadie */
+      salida.innerHTML = hechas.map(h => {
+        const url = URL.createObjectURL(h.blob);
+        return `<a class="port" href="${url}" download="${h.nombre}">
+                  <img src="${url}" alt="${h.nombre}">
+                  <span>${h.nombre}</span>
+                </a>`;
+      }).join('');
+
+      aviso.innerHTML = hechas.length === lista.length
+        ? `Listas las ${hechas.length}. <b>Pulsa cada una para guardarla</b>, o usa el botón de abajo.`
+        : `Salieron ${hechas.length} de ${lista.length}. Mira la consola con F12 para ver qué falló.`;
+
+      if (hechas.length) {
+        const bt = document.createElement('button');
+        bt.className = 'btn'; bt.style.marginTop = '12px';
+        bt.textContent = 'Intentar descargarlas todas';
+        bt.onclick = async () => {
+          for (const h of hechas) {
+            const a2 = document.createElement('a');
+            a2.href = URL.createObjectURL(h.blob);
+            a2.download = h.nombre;
+            a2.click();
+            await new Promise(r => setTimeout(r, 900));
+          }
+        };
+        salida.appendChild(bt);
+      }
       boton.disabled = false;
     };
   }

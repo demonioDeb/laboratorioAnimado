@@ -1,6 +1,7 @@
 /* ══════════════════════════════════════════════════════════
    CATÁLOGO · el único archivo que tocas al publicar
    Pega el id de YouTube y los enlaces. Nada más.
+   `youtube` es el short; `youtubeLargo`, la versión de YouTube larga.
    Es un .js y no un .json a propósito: así la galería también
    funciona abriendo el archivo con doble clic, sin servidor.
    ══════════════════════════════════════════════════════════ */
@@ -27,12 +28,43 @@ window.LAB_SOLO_PORTADA = true;
 
 window.CATALOGO = [
   {
+    id:'bisel',
+    titulo:'El aro de tu reloj sabe multiplicar',
+    resumen:'Ese anillo lleno de números diminutos no es un adorno: multiplica, convierte unidades y calcula cuánta gasolina te queda.',
+    categoria:'Cálculo',
+    publicado:'2026-08-19',
+    youtube:'',
+    tiktok:'',
+    facebook:''
+  },
+  {
+    id:'costa',
+    titulo:'España decía 1214 km. Portugal decía 987',
+    resumen:'La misma frontera, medida por los dos vecinos, con 23 % de diferencia. Ninguno se equivocaba: usaron reglas distintas.',
+    categoria:'Geometría',
+    publicado:'2026-08-19',
+    youtube:'RUGWsQTkp70',
+    tiktok:'',
+    facebook:''
+  },
+  {
+    id:'aureo',
+    titulo:'Se lo inventó en 1855',
+    resumen:'El número áureo no está en el Partenón ni en las conchas. Donde sí está, en un girasol, es por una razón mejor que el mito.',
+    categoria:'Geometría',
+    publicado:'2026-08-19',
+    youtube:'rPErDTpvpls',
+    tiktok:'',
+    facebook:''
+  },
+  {
     id:'pendulo',
     titulo:'Una bola colgada sabe dónde estás',
     resumen:'Cuelga una bola de un cable largo y déjala oscilar. Al cabo de una hora oscila en otra dirección, y nadie la ha tocado.',
     categoria:'Física',
     publicado:'2026-08-15',
     youtube:'L0MgE7xZHp4',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -43,6 +75,7 @@ window.CATALOGO = [
     categoria:'Geometría',
     publicado:'2026-08-15',
     youtube:'Q1ppzstGBQU',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -53,6 +86,7 @@ window.CATALOGO = [
     categoria:'Física',
     publicado:'2026-08-15',
     youtube:'OWGDJZfSNx4',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -63,6 +97,7 @@ window.CATALOGO = [
     categoria:'Probabilidad',
     publicado:'2026-08-14',
     youtube:'5Lnjc0hN9_o',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -73,6 +108,7 @@ window.CATALOGO = [
     categoria:'Geometría',
     publicado:'2026-08-14',
     youtube:'JMDBT40QM7E',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -83,6 +119,7 @@ window.CATALOGO = [
     categoria:'Fluidos',
     publicado:'2026-08-13',
     youtube:'TkKL5ck1DF8',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   },
@@ -93,6 +130,7 @@ window.CATALOGO = [
     categoria:'Cálculo',
     publicado:'2026-08-12',
     youtube:'duvG_n96orc',
+    youtubeLargo:'',
     tiktok:'',
     facebook:''
   }

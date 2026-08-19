@@ -331,6 +331,24 @@ Cada animación nueva hereda esas etiquetas de su plantilla HTML.
 
 ---
 
+## 8b · Vídeos largos
+
+**Una animación, dos guiones.** El campo `guion` es el corto y `guionLargo` el
+extenso. Se elige en Estudio y el resto del sistema no cambia. Así el péndulo
+tiene un short de 84 s y un vídeo de casi cuatro minutos sin duplicar la escena.
+
+**Varias perspectivas o se hace monótono.** En cuatro minutos, la misma imagen
+cansa. El péndulo tiene cinco vistas y el guion largo las rota: ninguna sale más
+de tres paradas seguidas.
+
+**El editor de marcas.** Con veintitrés pulsaciones, fallar una y repetirlas
+todas era inaceptable. La lista de marcas permite mover una ±0,15 s o retomar el
+marcado desde cualquier parada.
+
+**La web no se parte en dos.** La unidad es la animación, no el vídeo. Cada
+página enlaza su short y su vídeo largo; la galería marca cuáles tienen versión
+larga y filtra por categoría.
+
 ## 9 · Plan acordado, aún sin construir
 
 Decidido en conversación tras publicar Riemann en YouTube y Facebook. Nada de

@@ -34,7 +34,7 @@ const num = (v, d = 2) =>
 const S = {
   anim:null, p:{}, def:{},
   reproduciendo:true, t:0, tr:0,
-  formato:null, estudio:false, limpio:false, subs:'resalta', tituloVoz:true, calidad:1080, progreso:'marco',
+  formato:null, estudio:false, limpio:false, subs:'resalta', tituloVoz:true, calidad:1080, progreso:'marco', guion:'corto',
   duracion:45,
   W:0, H:0, u:1
 };
@@ -101,6 +101,7 @@ function montarPortal() {
 
   const cat = window.CATALOGO && window.CATALOGO.find(c => c.id === m.id);
   const yt = cat && cat.youtube;
+  const ytLargo = cat && cat.youtubeLargo;
   const repo = 'https://github.com/demonioDeb/laboratorioAnimado';
   const cafe = window.LAB_CAFE || '';
 
@@ -124,7 +125,8 @@ function montarPortal() {
         <button class="btn solid wide portal-entrar" id="bEntrar">Abrir la simulación</button>
 
         <div class="portal-enlaces">
-          ${yt ? `<a href="https://youtu.be/${yt}" target="_blank" rel="noopener">Ver el vídeo</a>` : ''}
+          ${yt ? `<a href="https://youtu.be/${yt}" target="_blank" rel="noopener">Ver el short</a>` : ''}
+          ${ytLargo ? `<a href="https://youtu.be/${ytLargo}" target="_blank" rel="noopener">Ver el vídeo completo</a>` : ''}
           <button id="bPortalComp">Compartir</button>
           <a href="${repo}" target="_blank" rel="noopener">Ver el código</a>
           ${cafe ? `<a href="${cafe}" target="_blank" rel="noopener">Invítame a un café</a>` : ''}
@@ -315,6 +317,7 @@ function construirPanel() {
       </div>
       <p class="note" id="notaVoz">Genera la narración fuera y cárgala aquí.
       Sin voz el vídeo sale mudo y todo funciona igual.</p>
+      <div id="listaMarcas"></div>
     </div>
     <div class="ctl">
       <label>Subtítulos</label>
@@ -340,6 +343,14 @@ function construirPanel() {
       <button class="btn sm wide" data-f="largo" style="margin-top:5px">Horizontal · vídeo largo</button>
       <button class="btn sm wide" data-f="" style="margin-top:5px">Sin guías</button>
     </div>
+    ${(a.guionLargo && a.guionLargo.length) ? `
+    <div class="ctl">
+      <label>Guion</label>
+      <div class="pills" style="margin-top:5px">
+        <button class="pill" data-gui="corto">Corto · ${(a.guion||[]).length} paradas</button>
+        <button class="pill" data-gui="largo">Largo · ${a.guionLargo.length} paradas</button>
+      </div>
+    </div>` : ''}
     <div class="ctl">
       <label>Barra de progreso</label>
       <div class="pills" style="margin-top:5px">
@@ -655,7 +666,9 @@ function bordeDelMarco(x0, y0, x1, y1, r, sentido) {
 
 function pintarMarco(fraccion) {
   const u = S.u;
-  const m = 7 * u, r = 26 * u;
+  /* Separado del borde: en un móvil con esquinas redondeadas y la barra
+     de gestos, lo que va pegado al canto no se ve. */
+  const m = 26 * u, r = 34 * u;
   const f = Math.max(0, Math.min(1, fraccion));
 
   /* Dos recorridos desde el centro de arriba, uno por cada lado.
@@ -899,7 +912,10 @@ function pintarCapas(L) {
 
 /* ─────────────────── Visita guiada ─────────────────── */
 function construirLista() {
-  T.lista = S.anim.guion || [];
+  /* Una escena, dos guiones: el corto para redes y el largo para
+     YouTube. Se elige en Estudio y todo lo demás sigue igual. */
+  const largo = S.anim.guionLargo;
+  T.lista = (S.guion === 'largo' && largo && largo.length) ? largo : (S.anim.guion || []);
   const w = T.lista.map(s => (s.titulo + ' ' + s.texto).length);
   const suma = w.reduce((a, b) => a + b, 0) || 1;
   T.frac = w.map(x => x / suma);
@@ -1005,6 +1021,7 @@ function cargarAudio(archivo) {
     estadoVoz(`${archivo.name} · ${num(VOZ.dur, 1)} s`);
     $('#bMarcar').disabled = false;
     marcarSRT();
+    pintarMarcas();
     notaVoz(`Cargado. Ahora marca dónde empieza cada una de las ${(S.anim.guion||[]).length} paradas.`);
   });
   VOZ.audio.addEventListener('ended', () => {
@@ -1074,6 +1091,7 @@ function terminarMarcado() {
     brindis('Tiempos marcados');
   }
   marcarSRT();
+  pintarMarcas();
   salirVisita();
 }
 
@@ -1105,6 +1123,59 @@ function seguirVoz() {
   if (!T.porVoz || !VOZ.audio || VOZ.audio.paused) return;
   const k = paradaDeVoz(VOZ.audio.currentTime);
   if (k !== T.k) mostrar(k);
+}
+
+/* Con veinte paradas, fallar una y repetir las veinte es inaceptable.
+   Aquí se retoca la que sea, o se sigue marcando desde donde quieras. */
+function pintarMarcas() {
+  const cont = $('#listaMarcas');
+  if (!cont) return;
+  if (!VOZ.marcas.length || VOZ.marcando) { cont.innerHTML = ''; return; }
+
+  const n = (S.anim.guion || []).length;
+  cont.innerHTML = `<p class="pista" style="margin:10px 0 6px">
+    Ajusta una marca si entró tarde o pronto, o sigue marcando desde ahí.</p>` +
+    VOZ.marcas.map((t, i) => `
+      <div class="marca">
+        <b>${i + 1}</b>
+        <span>${num(t, 2)} s</span>
+        <button class="pill" data-mv="${i}:-0.15" title="adelantar">−</button>
+        <button class="pill" data-mv="${i}:0.15"  title="atrasar">+</button>
+        <button class="pill" data-remar="${i}">desde aquí</button>
+      </div>`).join('') +
+    (VOZ.marcas.length < n ? `<p class="pista">Faltan ${n - VOZ.marcas.length} paradas.</p>` : '');
+
+  cont.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => {
+    const [i, d] = b.dataset.mv.split(':');
+    const k = +i, paso = +d;
+    const min = k > 0 ? VOZ.marcas[k-1] + .1 : 0;
+    const max = k + 1 < VOZ.marcas.length ? VOZ.marcas[k+1] - .1 : (VOZ.dur || 1e9);
+    VOZ.marcas[k] = Math.max(min, Math.min(max, VOZ.marcas[k] + paso));
+    pintarMarcas();
+  });
+  cont.querySelectorAll('[data-remar]').forEach(b => b.onclick = () => {
+    retomarMarcado(+b.dataset.remar);
+  });
+}
+
+/* Volver a marcar a partir de una parada, conservando las anteriores */
+function retomarMarcado(desde) {
+  if (!VOZ.audio) return;
+  construirLista();
+  VOZ.marcas = VOZ.marcas.slice(0, Math.max(1, desde));
+  VOZ.marcando = true;
+  VOZ.activa = false;
+  VOZ.audio.currentTime = VOZ.marcas[VOZ.marcas.length - 1] || 0;
+  VOZ.audio.play();
+  T.on = true; T.cronometrado = false; T.porVoz = false;
+  $('#bVisita').style.display = 'none';
+  $('#visitaCtl').style.display = '';
+  bloquearControles(true);
+  mostrar(VOZ.marcas.length - 1);
+  $('#bMarcar').textContent = 'Marcando…';
+  marcarSRT();
+  pintarMarcas();
+  notaVoz(`Sigue desde la parada ${VOZ.marcas.length}. Pulsa <b>espacio</b> en cada corte.`);
 }
 
 function estadoVoz(txt) { const e = $('#vozEstado'); if (e) e.textContent = txt; }
@@ -1268,6 +1339,11 @@ function grabar(formato) {
 }
 
 function comenzarGrabacion() {
+  /* Primero la bandera y luego el ajuste: la cuenta atrás ya puso
+     R.cuenta a cero, así que sin esto ajustar() cree que no estamos
+     grabando y deja el lienzo al tamaño de la ventana. Era la causa
+     de que el vídeo saliera en la resolución equivocada. */
+  R.grabando = true;
   ajustar();
   S.anim.reiniciar && S.anim.reiniciar(API);
   S.t = 0;
@@ -1275,11 +1351,14 @@ function comenzarGrabacion() {
   const flujo = lienzo.captureStream(60);
   const conVoz = vozLista();
 
+  /* La pista de audio se engancha ANTES de crear el grabador, pero la
+     voz todavía no suena. Antes se lanzaba aquí y el grabador tardaba
+     unos milisegundos más en arrancar: ese hueco se perdía y por eso
+     el principio salía cortado. */
   if (conVoz) {
-    /* manda la voz: el recorrido sigue sus marcas, no un cronómetro */
     construirLista();
     T.on = true; T.cronometrado = false; T.porVoz = true; T.auto = false;
-    S.reproduciendo = true;
+    S.reproduciendo = false;          /* quieto hasta que grabe de verdad */
     $('#bVisita').style.display = 'none';
     $('#visitaCtl').style.display = '';
     bloquearControles(true);
@@ -1287,10 +1366,8 @@ function comenzarGrabacion() {
     const d = prepararSalidaVoz();
     if (d) d.stream.getAudioTracks().forEach(t => flujo.addTrack(t));
     VOZ.ctx && VOZ.ctx.resume();
+    VOZ.audio.pause();
     VOZ.audio.currentTime = 0;
-    VOZ.audio.play();
-  } else {
-    iniciarVisita({ total: S.duracion });
   }
 
   R.trozos = [];
@@ -1300,15 +1377,39 @@ function comenzarGrabacion() {
       videoBitsPerSecond: BITS[S.calidad] || 16e6,
       audioBitsPerSecond: 160e3 });
   } catch (err) {
+    R.grabando = false;
     brindis('No se pudo iniciar: ' + err.message);
     salirEncuadre(); return;
   }
   R.rec.ondataavailable = ev => { if (ev.data.size) R.trozos.push(ev.data); };
   R.rec.onstop = guardarClip;
+
+  /* Arranca el grabador y solo cuando ha empezado de verdad se suelta
+     la voz. Los primeros fotogramas del codificador siempre tropiezan;
+     que tropiecen sobre silencio y sobre la primera parada quieta. */
+  R.soltado = false;
+  const soltar = () => {
+    if (R.soltado) return;
+    R.soltado = true;
+    R.t0 = performance.now();
+    FPS.minimo = 60;
+    S.reproduciendo = true;
+    if (conVoz) {
+      const p = VOZ.audio.play();
+      if (p && p.catch) p.catch(() => {});
+    } else {
+      iniciarVisita({ total: S.duracion });
+    }
+  };
+
+  R.rec.onstart = () => setTimeout(soltar, 220);
   R.rec.start(100);
   R.grabando = true;
   R.t0 = performance.now();
   FPS.minimo = 60;
+
+  /* Por si el navegador no dispara onstart */
+  setTimeout(() => { if (R.grabando) soltar(); }, 700);
 }
 
 function tickGrabacion() {
@@ -1319,7 +1420,7 @@ function tickGrabacion() {
   const f = FPS.valor;
   const col = f < 45 ? '#FF6E56' : f < 55 ? '#E9A93C' : '#7FD6A0';
   $('#recEstado').innerHTML =
-    `<span class="punto"></span>${num(el, 1)} / ${num(fin, 1)} s · ${ZONAS[S.formato].tag}` +
+    `<span class="punto"></span>${num(el, 1)} / ${num(fin, 1)} s · ${S.W}×${S.H}` +
     (conVoz ? ' · voz' : '') +
     ` · <b style="color:${col}">${Math.round(f)} fps</b>`;
   if (el >= fin - .02 || (conVoz && VOZ.audio.ended)) detenerGrabacion();
@@ -1610,6 +1711,11 @@ function marcarSRT() {
   }
 }
 
+function marcarGuion() {
+  document.querySelectorAll('[data-gui]').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.gui === S.guion)));
+}
+
 function marcarProgreso() {
   document.querySelectorAll('[data-prog]').forEach(b =>
     b.setAttribute('aria-pressed', String(b.dataset.prog === S.progreso)));
@@ -1734,6 +1840,16 @@ function conectar() {
     else S.anim.tecla && S.anim.tecla(e, API);
   });
 
+  document.querySelectorAll('[data-gui]').forEach(b => b.onclick = () => {
+    S.guion = b.dataset.gui;
+    marcarGuion();
+    construirLista();
+    VOZ.marcas = []; VOZ.activa = false;
+    marcarSRT(); pintarMarcas();
+    notaVoz('Guion cambiado: hay que volver a marcar los tiempos.');
+    salirVisita();
+  });
+
   document.querySelectorAll('[data-prog]').forEach(b => b.onclick = () => {
     S.progreso = b.dataset.prog;
     marcarProgreso();
@@ -1755,6 +1871,7 @@ function conectar() {
   marcarSubs();
   marcarCalidad();
   marcarProgreso();
+  marcarGuion();
   marcarSRT();
 }
 

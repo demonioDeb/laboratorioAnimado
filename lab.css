@@ -251,6 +251,13 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border:0;border-radiu
 .suelta:hover{border-color:var(--chalk-3);background:var(--panel-2)}
 .suelta.encima{border-color:var(--ochre);background:rgba(233,169,60,.10)}
 
+/* Lista de marcas de la voz */
+.marca{display:grid;grid-template-columns:22px 1fr auto auto auto;gap:5px;
+  align-items:center;margin-bottom:5px}
+.marca b{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--chalk-3)}
+.marca span{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ochre)}
+.marca .pill{padding:4px 8px;font-size:10.5px}
+
 /* Barra de transporte, tipo reproductor */
 .transporte{display:grid;grid-template-columns:44px 1fr 44px;gap:6px;margin-bottom:7px}
 .transporte .btn{padding:0}

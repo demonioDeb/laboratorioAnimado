@@ -80,6 +80,195 @@ function sembrar(a) {
   planoN = 0; planoI = 0; ultimoPlano = 1e9;
 }
 
+/* Una sala entera dibujada donde se le diga: sirve para la vista normal
+   y para las tres latitudes en paralelo. */
+function dibujaSala(g, e, cx, cy, R, rad, sen, u, lat) {
+  const X = e.x + cx, Y = e.y + cy;
+  g.strokeStyle = 'rgba(42,88,120,.5)';
+  g.lineWidth = Math.max(1, 1.2 * u);
+  g.beginPath(); g.arc(X, Y, R, 0, 6.283185307); g.stroke();
+
+  const ux = Math.cos(rad), uy = Math.sin(rad), amp = R * .9;
+  g.strokeStyle = 'rgba(234,242,248,.28)';
+  g.lineWidth = Math.max(1, 1.4 * u);
+  g.beginPath();
+  g.moveTo(X - ux * amp, Y - uy * amp);
+  g.lineTo(X + ux * amp, Y + uy * amp);
+  g.stroke();
+
+  /* la dirección de partida, para ver cuánto se ha ido */
+  g.strokeStyle = 'rgba(169,194,214,.30)';
+  g.setLineDash([5 * u, 5 * u]);
+  g.beginPath(); g.moveTo(X - amp, Y); g.lineTo(X + amp, Y); g.stroke();
+  g.setLineDash([]);
+
+  const bx = X + ux * amp * sen, by = Y + uy * amp * sen;
+  const gr = g.createRadialGradient(bx, by, 0, bx, by, 14 * u);
+  gr.addColorStop(0, 'rgba(255,246,226,.45)');
+  gr.addColorStop(1, 'rgba(255,246,226,0)');
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(bx, by, 14 * u, 0, 6.283185307); g.fill();
+  g.fillStyle = '#FFF6E2';
+  g.beginPath(); g.arc(bx, by, 4.5 * u, 0, 6.283185307); g.fill();
+  g.fillStyle = 'rgba(119,148,173,.8)';
+  g.beginPath(); g.arc(X, Y, 2.4 * u, 0, 6.283185307); g.fill();
+}
+
+function pintarRotulos(g, e, uh, a, hPorSeg) {
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.font = `${19 * uh}px 'JetBrains Mono',monospace`;
+  g.fillStyle = 'rgba(233,169,60,.95)';
+  g.fillText(`latitud ${a.p.lat}°`, e.x + 4 * uh, e.y + 20 * uh);
+  g.fillStyle = 'rgba(119,148,173,.95)';
+  g.fillText(`×${Math.round(hPorSeg * 3600).toLocaleString('es')} acelerado`,
+             e.x + 4 * uh, e.y + 44 * uh);
+  g.fillText(`1 vaivén = ${VAIVENES_COMPRIMIDOS} reales`, e.x + 4 * uh, e.y + 68 * uh);
+}
+
+/* ── El disco que gira ──
+   Trazar una recta sobre un disco en movimiento: la mano va derecha y
+   sale una curva. Es la inercia contada sin una sola fórmula. */
+let discoAng = 0;
+const trazoDisco = [];
+
+function pintarDisco(g, e, u, uh, dt, vel) {
+  const R = Math.min(e.w, e.h) * .40;
+  const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+
+  if (dt > 0) {
+    discoAng += dt * vel;
+    /* la mano baja recta, a ritmo constante, y vuelve a empezar */
+    const T = 3.2;
+    const f = ((performance.now() / 1000) % T) / T;
+    const y = (f * 2 - 1) * R * .88;
+    /* el punto en coordenadas del disco: lo que queda dibujado en él */
+    const a = -discoAng;
+    trazoDisco.push([Math.cos(a) * 0 - Math.sin(a) * y, Math.sin(a) * 0 + Math.cos(a) * y, f]);
+    if (trazoDisco.length > 900) trazoDisco.shift();
+    if (f < .02) trazoDisco.length = 0;
+  }
+
+  g.strokeStyle = 'rgba(42,88,120,.55)';
+  g.lineWidth = Math.max(1, 1.4 * u);
+  g.beginPath(); g.arc(cx, cy, R, 0, 6.283185307); g.stroke();
+
+  /* marcas del disco, para que se vea que gira */
+  g.strokeStyle = 'rgba(90,150,200,.16)';
+  for (let k = 0; k < 12; k++) {
+    const t = discoAng + 6.283185307 * k / 12;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(t) * R * .18, cy + Math.sin(t) * R * .18);
+    g.lineTo(cx + Math.cos(t) * R, cy + Math.sin(t) * R);
+    g.stroke();
+  }
+
+  /* la línea que la mano cree estar trazando: recta */
+  g.strokeStyle = 'rgba(169,194,214,.30)';
+  g.setLineDash([6 * u, 6 * u]);
+  g.beginPath(); g.moveTo(cx, cy - R * .88); g.lineTo(cx, cy + R * .88); g.stroke();
+  g.setLineDash([]);
+
+  /* lo que queda dibujado en el disco: curvo */
+  g.lineWidth = Math.max(1.4, 2.6 * u);
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  g.beginPath();
+  trazoDisco.forEach(([x, y], i) => {
+    const c = Math.cos(discoAng), sn = Math.sin(discoAng);
+    const X = cx + (x * c - y * sn), Y = cy + (x * sn + y * c);
+    i ? g.lineTo(X, Y) : g.moveTo(X, Y);
+  });
+  g.strokeStyle = '#E9A93C';
+  g.stroke();
+
+  /* la punta */
+  if (trazoDisco.length) {
+    const [x, y] = trazoDisco[trazoDisco.length - 1];
+    const c = Math.cos(discoAng), sn = Math.sin(discoAng);
+    const X = cx + (x * c - y * sn), Y = cy + (x * sn + y * c);
+    g.fillStyle = '#FFF6E2';
+    g.beginPath(); g.arc(X, Y, 5 * u, 0, 6.283185307); g.fill();
+  }
+
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.font = `${17 * uh}px 'JetBrains Mono',monospace`;
+  g.fillStyle = 'rgba(169,194,214,.75)';
+  g.fillText('la mano va recta', cx, cy - R - 26 * uh);
+  g.fillStyle = 'rgba(233,169,60,.95)';
+  g.fillText('el disco guarda una curva', cx, cy + R + 30 * uh);
+}
+
+/* ── Desde el espacio ──
+   El plano se queda quieto apuntando a las estrellas y el globo rota
+   debajo. Es lo mismo de siempre, visto desde fuera. */
+let globoAz = 0;
+
+function pintarOrbita(g, e, u, uh, dt, lat, tSimSeg) {
+  const R = Math.min(e.w, e.h) * .34;
+  const cx = e.x + e.w / 2, cy = e.y + e.h / 2;
+  if (dt > 0) globoAz += dt * .9;
+
+  const tilt = .42, ct = Math.cos(tilt), st = Math.sin(tilt);
+  const proy = (x, y, z) => {
+    const xr = x * Math.cos(globoAz) - y * Math.sin(globoAz);
+    const yr = x * Math.sin(globoAz) + y * Math.cos(globoAz);
+    return [cx + xr * R, cy - (z * ct - yr * st) * R, yr * ct + z * st];
+  };
+  const punto = (colat, f) => [Math.sin(colat) * Math.cos(f),
+                               Math.sin(colat) * Math.sin(f),
+                               Math.cos(colat)];
+
+  g.lineWidth = Math.max(.6, 1 * u);
+  for (let m = 0; m < 16; m++) {
+    const f = 6.283185307 * m / 16;
+    g.beginPath();
+    for (let k = 0; k <= 60; k++) {
+      const [X, Y] = proy(...punto(Math.PI * k / 60, f));
+      k ? g.lineTo(X, Y) : g.moveTo(X, Y);
+    }
+    g.strokeStyle = 'rgba(90,150,200,.15)'; g.stroke();
+  }
+  for (let pz = 1; pz < 10; pz++) {
+    const c = Math.PI * pz / 10;
+    g.beginPath();
+    for (let k = 0; k <= 90; k++) {
+      const [X, Y] = proy(...punto(c, 6.283185307 * k / 90));
+      k ? g.lineTo(X, Y) : g.moveTo(X, Y);
+    }
+    g.strokeStyle = 'rgba(90,150,200,.15)'; g.stroke();
+  }
+  g.strokeStyle = 'rgba(42,88,120,.5)';
+  g.lineWidth = Math.max(1, 1.3 * u);
+  g.beginPath(); g.arc(cx, cy, R, 0, 6.283185307); g.stroke();
+
+  /* dónde cuelga el péndulo */
+  const colat = Math.PI/2 - lat * Math.PI/180;
+  const q = punto(colat, 0);
+  const [PX, PY, pd] = proy(...q);
+  g.fillStyle = pd > 0 ? '#E9A93C' : 'rgba(233,169,60,.3)';
+  g.beginPath(); g.arc(PX, PY, 5 * u, 0, 6.283185307); g.fill();
+
+  /* el plano, quieto respecto a las estrellas */
+  const largo = R * .55;
+  const vai = Math.sin(performance.now() / 420);
+  g.strokeStyle = 'rgba(234,242,248,.85)';
+  g.lineWidth = Math.max(1.6, 2.8 * u);
+  g.beginPath();
+  g.moveTo(PX - largo, PY - largo * .18);
+  g.lineTo(PX + largo, PY + largo * .18);
+  g.stroke();
+  g.fillStyle = '#FFF6E2';
+  g.beginPath();
+  g.arc(PX + largo * vai, PY + largo * .18 * vai, 6 * u, 0, 6.283185307);
+  g.fill();
+
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.font = `${17 * uh}px 'JetBrains Mono',monospace`;
+  g.fillStyle = 'rgba(234,242,248,.8)';
+  g.fillText('el plano no se mueve', cx, cy - R - 26 * uh);
+  g.fillStyle = 'rgba(119,148,173,.9)';
+  g.fillText('la Tierra sí', cx, cy + R + 30 * uh);
+}
+
 LabShell.registrar({
 
   meta: {
@@ -119,6 +308,11 @@ LabShell.registrar({
     { id:'clavijas', tipo:'rango', label:'Clavijas', min:0, max:72, paso:4, valor:48 },
     { id:'estela', tipo:'rango', label:'Rastro', min:1, max:40, paso:1, valor:26 },
 
+    { id:'vista', tipo:'opciones', label:'¿Quién gira?', valor:'suelo',
+      opciones:[{v:'suelo',t:'Gira el péndulo'},{v:'cielo',t:'Gira el suelo'},
+                {v:'tres',t:'Tres latitudes'},{v:'disco',t:'El disco'},
+                {v:'orbita',t:'Desde el espacio'}] },
+
     { id:'sala',   tipo:'interruptor', label:'La sala', valor:true, grupo:'vista' },
     { id:'rosa',   tipo:'interruptor', label:'Norte',   valor:true, grupo:'vista' },
     { id:'inicial',tipo:'interruptor', label:'Dirección inicial', valor:true, grupo:'vista' }
@@ -132,6 +326,8 @@ LabShell.registrar({
   ],
 
   ayuda: [
+    ['¿Quién gira?', 'La misma física contada de varias formas. «El disco» es la analogía: una mano que traza recto sobre algo que gira deja una curva. «Desde el espacio» enseña el plano quieto y la Tierra rotando.'],
+    ['Vistas', 'La misma física contada de dos formas. «Gira el péndulo» es lo que ves desde la sala; «gira el suelo» es lo que pasa de verdad. «Tres latitudes» las compara en paralelo.'],
     ['Latitud', 'Lo único que decide la velocidad del giro. En el polo, un día; en el ecuador, nunca.'],
     ['Horas por segundo', 'Esto es un lapso de tiempo: al acelerar corre todo igual, el vaivén y el giro. Cada vaivén de la pantalla vale por unos trescientos reales.'],
     ['Clavijas', 'La corona que se pone alrededor en las salas donde cuelga uno. El péndulo las va tumbando y hacen de reloj.'],
@@ -144,7 +340,8 @@ LabShell.registrar({
       texto:'Léon Foucault colgó una bola de veintiocho kilos de un cable larguísimo y la dejó ' +
             'oscilar en línea recta.',
       dato:() => 'Léon Foucault · 1851',
-      al:a => { a.set('lat',49); a.set('horas',14); a.set('clavijas',48); a.set('estela',30); } },
+      al:a => { a.set('vista','suelo'); a.set('lat',49); a.set('horas',14);
+                a.set('clavijas',48); a.set('estela',30); } },
 
     { clave:'Horas después',
       texto:'Volvió y la bola oscilaba en otra dirección. Nadie la había tocado. Esto va ' +
@@ -154,9 +351,9 @@ LabShell.registrar({
 
     { clave:'No gira el péndulo',
       texto:'Gira el suelo. La sala, el edificio y la ciudad entera se mueven debajo, y el ' +
-            'péndulo se queda donde estaba.',
+            'péndulo se queda donde estaba. Míralo así.',
       dato:() => 'la Tierra pasa por debajo',
-      al:a => { a.set('horas',30); a.set('estela',36); } },
+      al:a => { a.set('vista','cielo'); a.set('horas',30); a.set('estela',36); } },
 
     { clave:'En los museos',
       texto:'Todavía cuelga uno en museos de medio mundo. Le ponen una corona de clavijas y ' +
@@ -170,11 +367,17 @@ LabShell.registrar({
       dato:() => '31,8 horas por vuelta',
       al:a => { a.set('lat',49); a.set('horas',44); } },
 
+    { clave:'Las tres a la vez',
+      texto:'Polo, tu ciudad y el ecuador, en paralelo. Arriba da una vuelta al día; abajo ' +
+            'no se mueve nunca.',
+      dato:() => '24 h · 32 h · nunca',
+      al:a => { a.set('vista','tres'); a.set('lat',49); a.set('horas',60); } },
+
     { clave:'Y cambia con la ciudad',
       texto:'En Ciudad de México tarda setenta y dos horas. En Nueva York, treinta y siete. ' +
             'En Tokio, cuarenta y una.',
       dato:() => `latitud ${19}° · 71,9 h`,
-      al:a => { a.set('lat',19); a.set('horas',60); } },
+      al:a => { a.set('vista','suelo'); a.set('lat',19); a.set('horas',60); } },
 
     { clave:'En el ecuador',
       texto:'Justo ahí no gira nunca. Un péndulo en Quito oscila en la misma dirección para ' +
@@ -201,10 +404,168 @@ LabShell.registrar({
       al:a => { a.set('lat',35); a.set('horas',40); a.set('clavijas',48); } }
   ],
 
+  /* ── Guion largo · unos cuatro minutos ──
+     Cada parada lleva su vista, para que no se haga monótono. */
+  guionLargo: [
+    { clave:'Mira esto', titulo:'Una bola colgada sabe dónde estás',
+      texto:'Una bola pesada colgada de un cable larguísimo. La empujas y se pone a ir y ' +
+            'venir en línea recta.',
+      dato:() => 'sin trucos',
+      al:a => { a.set('vista','suelo'); a.set('lat',49); a.set('horas',10);
+                a.set('clavijas',48); a.set('estela',30); a.set('inicial',true); } },
+
+    { clave:'Pasan las horas',
+      texto:'Déjala unas horas y vuelve. Sigue yendo y viniendo en línea recta, pero la ' +
+            'línea ya no es la misma. Se ha girado.',
+      dato:() => `${num(tSim/3600,1)} horas · ${num(Math.abs(anguloPlano(49,tSim)),0)}°`,
+      al:a => a.set('horas',20) },
+
+    { clave:'El reloj',
+      texto:'Para no fiarse del ojo se pone una corona de clavijas. El péndulo las va ' +
+            'tumbando una a una, y ahí ya no hay discusión.',
+      dato:() => `${caidas} clavijas tumbadas`,
+      al:a => { a.set('clavijas',64); a.set('horas',28); } },
+
+    { clave:'La pregunta',
+      texto:'¿Quién la ha girado? No hay viento, no hay motor, nadie la ha tocado. Y aun ' +
+            'así, cada hora apunta a otro sitio.',
+      dato:() => 'nadie la tocó',
+      al:a => a.set('horas',34) },
+
+    { clave:'París · 1851',
+      texto:'Léon Foucault colgó una bola de veintiocho kilos de un cable de sesenta y siete ' +
+            'metros, dentro de un edificio de París, y la dejó oscilar.',
+      dato:() => 'Léon Foucault · 1851',
+      al:a => { a.set('horas',22); a.set('estela',34); } },
+
+    { clave:'La gente miraba',
+      texto:'Se llenó de curiosos. No estaban viendo moverse una bola: estaban viendo, por ' +
+            'primera vez, moverse el suelo bajo sus pies.',
+      dato:() => 'la primera prueba directa',
+      al:a => a.set('horas',30) },
+
+    { clave:'Lo que demostró',
+      texto:'Que la Tierra gira. Todo el mundo lo daba por hecho desde hacía siglos, pero ' +
+            'siempre mirando al cielo. Foucault lo probó desde dentro de una sala.',
+      dato:() => 'sin mirar por la ventana',
+      al:a => a.set('horas',36) },
+
+    { clave:'La clave: la inercia',
+      texto:'A la bola le da igual que la Tierra gire. Una vez lanzada, quiere seguir yendo ' +
+            'y viniendo en la misma dirección del espacio.',
+      dato:() => 'la inercia',
+      al:a => a.set('vista','disco') },
+
+    { clave:'Como en un disco',
+      texto:'Imagina que intentas trazar una línea recta sobre un disco que gira. Tu mano va ' +
+            'derecha, sin desviarse ni un milímetro.',
+      dato:() => 'la mano va recta',
+      al:a => a.set('vista','disco') },
+
+    { clave:'Y sale una curva',
+      texto:'Pero lo que queda dibujado en el disco es una curva. No porque tu mano se torciera: ' +
+            'porque el papel se movió debajo.',
+      dato:() => 'el disco guarda una curva',
+      al:a => a.set('vista','disco') },
+
+    { clave:'Desde fuera',
+      texto:'Visto desde el espacio se entiende de golpe. El plano del péndulo se queda quieto, ' +
+            'apuntando siempre a las mismas estrellas.',
+      dato:() => 'el plano no se mueve',
+      al:a => a.set('vista','orbita') },
+
+    { clave:'La que gira eres tú',
+      texto:'Y la Tierra rota debajo, contigo, con la sala y con las clavijas. El péndulo no ' +
+            'gira: giramos nosotros a su alrededor.',
+      dato:() => 'giramos nosotros',
+      al:a => a.set('vista','orbita') },
+
+    { clave:'Pero hay una trampa',
+      texto:'Si fuera solo eso, el péndulo daría una vuelta completa cada veinticuatro horas ' +
+            'en cualquier sitio. Y no es así.',
+      dato:() => 'no todas las latitudes igual',
+      al:a => { a.set('vista','suelo'); a.set('lat',49); a.set('horas',44); } },
+
+    { clave:'Las tres a la vez',
+      texto:'Mira lo mismo en tres sitios. Arriba, cerca del polo. En medio, París. Abajo, ' +
+            'justo en el ecuador.',
+      dato:() => 'polo · París · ecuador',
+      al:a => { a.set('vista','tres'); a.set('lat',49); a.set('horas',60); } },
+
+    { clave:'El polo',
+      texto:'En el polo el suelo gira entero bajo el péndulo. Vuelta completa en un día ' +
+            'exacto: veinticuatro horas.',
+      dato:() => 'latitud 90° · 23,9 h',
+      al:a => a.set('vista','tres') },
+
+    { clave:'El ecuador',
+      texto:'Y en el ecuador no gira nunca. Ni un grado. Un péndulo allí oscila en la misma ' +
+            'dirección hasta que se pare.',
+      dato:() => 'latitud 0° · nunca',
+      al:a => a.set('vista','tres') },
+
+    { clave:'Por qué',
+      texto:'Porque lo que hace girar el plano es la parte del giro de la Tierra que apunta ' +
+            'hacia arriba. En el polo apunta entera hacia arriba.',
+      dato:() => 'la componente vertical',
+      al:a => { a.set('vista','orbita'); a.set('lat',85); } },
+
+    { clave:'Y en el ecuador',
+      texto:'Allí esa parte vale cero: el giro apunta al horizonte, no al cielo. Por eso el ' +
+            'péndulo no tiene ningún motivo para moverse.',
+      dato:() => 'cero componente vertical',
+      al:a => { a.set('vista','orbita'); a.set('lat',0); } },
+
+    { clave:'La cuenta',
+      texto:'De ahí sale una fórmula de una línea: quince grados por hora, multiplicado por ' +
+            'el seno de tu latitud. Eso es todo.',
+      dato:() => '15° por hora × sen(latitud)',
+      al:a => { a.set('vista','suelo'); a.set('lat',49); a.set('horas',50); } },
+
+    { clave:'Tu ciudad',
+      texto:'En París son treinta y dos horas. En Nueva York, treinta y siete. En Tokio, ' +
+            'cuarenta y una. En Ciudad de México, setenta y dos.',
+      dato:() => `latitud ${19}° · 71,9 h`,
+      al:a => { a.set('lat',19); a.set('horas',60); } },
+
+    { clave:'Cada sitio, su número',
+      texto:'Cuanto más te acercas al ecuador, más tarda. Y si bajas del todo, deja de ' +
+            'girar. Tu latitud está escrita en el suelo.',
+      dato:() => 'la latitud, medida desde dentro',
+      al:a => { a.set('lat',5); a.set('horas',70); } },
+
+    { clave:'No es una curiosidad',
+      texto:'Así que la próxima vez que veas uno en un museo, no es un adorno lento. Es un ' +
+            'instrumento midiendo el planeta entero.',
+      dato:() => 'un instrumento, no un adorno',
+      al:a => { a.set('vista','cielo'); a.set('lat',49); a.set('horas',40); a.set('estela',36); } },
+
+    { clave:'El remate',
+      texto:'Una bola, un cable y paciencia. Con eso se puede saber que la Tierra gira y en ' +
+            'qué punto de ella estás parado.',
+      dato:() => 'sin salir de la sala',
+      al:a => { a.set('vista','orbita'); a.set('lat',49); } },
+
+    { clave:'Ahora te toca',
+      texto:'¿Hay un péndulo de Foucault en tu ciudad? Búscalo y cuéntamelo en los ' +
+            'comentarios. La simulación está en el enlace de abajo.',
+      dato:() => 'laboratorio animado',
+      al:a => { a.set('vista','suelo'); a.set('lat',35); a.set('horas',40); a.set('clavijas',48); } }
+  ],
+
   iniciar(a) { sembrar(a); },
   reiniciar(a) { sembrar(a); if (ce) ce.clearRect(0,0,anchoE,altoE); },
 
   cambio(id, v, a) {
+    if (id === 'vista') {
+      /* Cada vista pinta cosas distintas sobre el mismo lienzo de
+         estela. Sin limpiar, quedan restos de la anterior encima. */
+      if (ce) ce.clearRect(0, 0, anchoE, altoE);
+      hayPrev = false;
+      planoN = 0; planoI = 0; ultimoPlano = 1e9;
+      if (typeof trazoDisco !== 'undefined') trazoDisco.length = 0;
+      return;
+    }
     if (id === 'lat' || id === 'clavijas') {
       sembrar(a);
       if (ce) ce.clearRect(0, 0, anchoE, altoE);
@@ -247,11 +608,58 @@ LabShell.registrar({
     a.leer('vuelta', horasVuelta ? num(horasVuelta, 1) + ' h' : 'nunca');
     a.leer('caidas', String(caidas));
 
+    if (a.p.vista === 'disco') {
+      pintarDisco(g, e, u, uh, a.dt, 1.1);
+      pintarRotulos(g, e, uh, a, hPorSeg);
+      return;
+    }
+    if (a.p.vista === 'orbita') {
+      pintarOrbita(g, e, u, uh, a.dt, lat, tSim);
+      pintarRotulos(g, e, uh, a, hPorSeg);
+      return;
+    }
+
+    /* ── Tres latitudes a la vez: polo, aquí y ecuador ── */
+    if (a.p.vista === 'tres') {
+      const vai = Math.sin(fase);
+      const trio = [
+        { lat: 85, nombre: 'cerca del polo' },
+        { lat: a.p.lat, nombre: 'tu latitud' },
+        { lat: 0,  nombre: 'en el ecuador' }
+      ];
+      const apaisado = W > H;
+      const ancho = apaisado ? W / 3 : W;
+      const alto  = apaisado ? H : H / 3;
+      trio.forEach((t, i) => {
+        const ox = apaisado ? i * ancho : 0;
+        const oy = apaisado ? 0 : i * alto;
+        const R2 = Math.min(ancho, alto) * .34;
+        const cx2 = ox + ancho / 2, cy2 = oy + alto / 2;
+        const an2 = anguloPlano(t.lat, tSim) * Math.PI / 180;
+        dibujaSala(g, e, cx2, cy2, R2, an2, vai, u, t.lat);
+        g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+        g.font = `${17 * uh}px 'JetBrains Mono',monospace`;
+        g.fillStyle = 'rgba(119,148,173,.95)';
+        g.fillText(t.nombre, e.x + cx2, e.y + cy2 - R2 - 26 * uh);
+        g.fillStyle = 'rgba(233,169,60,.95)';
+        const hh = Math.abs(Math.sin(t.lat * Math.PI/180)) > .008
+                 ? num(23.934 / Math.abs(Math.sin(t.lat * Math.PI/180)), 1) + ' h'
+                 : 'nunca';
+        g.fillText(hh, e.x + cx2, e.y + cy2 + R2 + 30 * uh);
+      });
+      pintarRotulos(g, e, uh, a, hPorSeg);
+      return;
+    }
+
     /* ── Encaje ── */
     const cx = W / 2, cy = H / 2;
     const R = Math.min(W, H) * .40;
-    const rad = ang * Math.PI / 180;
+    /* Dos formas de contar lo mismo. En «gira el suelo» el plano se queda
+       fijo y lo que da vueltas es la sala, que es lo que ocurre de verdad. */
+    const giroSala = a.p.vista === 'cielo' ? -ang : 0;
+    const rad = (a.p.vista === 'cielo' ? 0 : ang) * Math.PI / 180;
     const ux = Math.cos(rad), uy = Math.sin(rad);
+    const gs = giroSala * Math.PI / 180;
 
     /* Guardamos el plano cada poco para trazar el abanico */
     if (a.dt > 0 && Math.abs(ang - ultimoPlano) > .45) {
@@ -260,6 +668,13 @@ LabShell.registrar({
       if (planoN < MEMP) planoN++;
       ultimoPlano = ang;
     }
+
+    /* Declarado antes de repartir el dibujo: lo usan varios bloques */
+    const amp = R * .90;
+    const vaiv = Math.sin(fase);
+
+    /* En «gira el suelo» todo lo que pertenece al suelo rota */
+    if (gs) { g.save(); g.translate(e.x + cx, e.y + cy); g.rotate(gs); g.translate(-(e.x + cx), -(e.y + cy)); }
 
     /* ── La sala ── */
     if (a.p.sala) {
@@ -272,46 +687,6 @@ LabShell.registrar({
         g.beginPath(); g.arc(e.x + cx, e.y + cy, R * k / 4, 0, 6.283185307); g.stroke();
       }
     }
-
-    /* ── El abanico de planos recorridos ── */
-    const ampF = Math.min(W, H) * .40 * .90;
-    g.save();
-    g.globalCompositeOperation = 'lighter';
-    g.lineCap = 'round';
-    for (let n = 0; n < planoN; n++) {
-      const i = (planoI - 1 - n + MEMP * 2) % MEMP;
-      const t = 1 - n / Math.max(1, planoN);
-      const rr = planos[i] * Math.PI / 180;
-      const c = tono(.15 + t * .8);
-      g.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${(.05 + t * .16).toFixed(3)})`;
-      g.lineWidth = Math.max(.6, (.7 + t * 1.4) * u);
-      g.beginPath();
-      g.moveTo(e.x + cx - Math.cos(rr) * ampF, e.y + cy - Math.sin(rr) * ampF);
-      g.lineTo(e.x + cx + Math.cos(rr) * ampF, e.y + cy + Math.sin(rr) * ampF);
-      g.stroke();
-    }
-    g.restore();
-
-    /* ── Rastro del vaivén: la roseta ── */
-    const amp = R * .90;
-    const s = Math.sin(fase);
-    const bx = cx + ux * amp * s, by = cy + uy * amp * s;
-
-    ce.globalCompositeOperation = 'destination-out';
-    ce.fillStyle = `rgba(0,0,0,${(0.34 / a.p.estela).toFixed(4)})`;
-    ce.fillRect(0, 0, W, H);
-    ce.globalCompositeOperation = 'lighter';
-    if (hayPrev) {
-      const t = Math.min(1, Math.abs(s));
-      const c = tono(.2 + t * .8);
-      ce.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},.72)`;
-      ce.lineWidth = Math.max(1.2, 2.4 * u);
-      ce.lineCap = 'round';
-      ce.beginPath(); ce.moveTo(pvx, pvy); ce.lineTo(bx, by); ce.stroke();
-    }
-    ce.globalCompositeOperation = 'source-over';
-    pvx = bx; pvy = by; hayPrev = true;
-    g.drawImage(lienzoEstela, e.x, e.y);
 
     /* ── Dirección inicial ── */
     if (a.p.inicial) {
@@ -343,6 +718,52 @@ LabShell.registrar({
         g.beginPath(); g.arc(X, Y, Math.max(1.6, 2.8 * u), 0, 6.283185307); g.fill();
       }
     }
+
+    if (gs) g.restore();
+
+    /* El abanico enseña por dónde pasó el plano. En «gira el suelo» el
+       plano no se mueve, así que no hay abanico que enseñar. Y ni él ni
+       la estela pertenecen al suelo: van fuera de la rotación. */
+    if (!gs) {
+    const ampF = Math.min(W, H) * .40 * .90;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    for (let n = 0; n < planoN; n++) {
+      const i = (planoI - 1 - n + MEMP * 2) % MEMP;
+      const t = 1 - n / Math.max(1, planoN);
+      const rr = planos[i] * Math.PI / 180;
+      const c = tono(.15 + t * .8);
+      g.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${(.05 + t * .16).toFixed(3)})`;
+      g.lineWidth = Math.max(.6, (.7 + t * 1.4) * u);
+      g.beginPath();
+      g.moveTo(e.x + cx - Math.cos(rr) * ampF, e.y + cy - Math.sin(rr) * ampF);
+      g.lineTo(e.x + cx + Math.cos(rr) * ampF, e.y + cy + Math.sin(rr) * ampF);
+      g.stroke();
+    }
+    g.restore();
+
+    }
+
+    /* ── Rastro del vaivén: la roseta ── */
+    const bx = cx + ux * amp * vaiv, by = cy + uy * amp * vaiv;
+
+    ce.globalCompositeOperation = 'destination-out';
+    ce.fillStyle = `rgba(0,0,0,${(0.34 / a.p.estela).toFixed(4)})`;
+    ce.fillRect(0, 0, W, H);
+    ce.globalCompositeOperation = 'lighter';
+    if (hayPrev) {
+      const t = Math.min(1, Math.abs(vaiv));
+      const c = tono(.2 + t * .8);
+      ce.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},.72)`;
+      ce.lineWidth = Math.max(1.2, 2.4 * u);
+      ce.lineCap = 'round';
+      ce.beginPath(); ce.moveTo(pvx, pvy); ce.lineTo(bx, by); ce.stroke();
+    }
+    ce.globalCompositeOperation = 'source-over';
+    pvx = bx; pvy = by; hayPrev = true;
+    g.drawImage(lienzoEstela, e.x, e.y);
+
 
     /* ── El plano de oscilación ── */
     g.strokeStyle = 'rgba(234,242,248,.32)';
